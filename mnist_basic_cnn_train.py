@@ -10,14 +10,54 @@ cnn_model = cnn.basic_model()
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
 
+# Prepare the training metrics
+train_acc_metric = tf.keras.metrics.SparseCategoricalCrossentropy()
+val_acc_metric = tf.keras.metrics.SparseCategoricalCrossentropy()
+
 def loss(model, x, y, training):
     y_ = model(x, training=training)
-    return loss_object(y_true=y, y_pred=y_)
+    return y_, loss_object(y_true=y, y_pred=y_)
 
+@tf.function
 def train_step(model, x_batch, y_batch, training):
     with tf.GradientTape() as tape:
-        loss_value = loss(model, x_batch, y_batch, training)
+        y_, loss_value = loss(model, x_batch, y_batch, training)
     grads = tape.gradient(loss_value, model.trainable_weights)
     optimizer.apply_gradients(zip(grads, model.trainable_weights))
+    train_acc_metric.update_state(y_batch, y_)
+    return loss_value
 
+@tf.function
+def test_step(model, x_batch, y_batch):
+    val_logits = model(x_batch, training=False)
+    val_acc_metric.update_state(y_batch, val_logits)
 
+import time
+
+epochs = 10
+for epoch in range(epochs):
+    print("\nStart of epoch %d" % (epoch, ))
+    start_time = time.time()
+
+    for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
+        loss_value = train_step(cnn_model, x_batch_train, y_batch_train, training=True)
+
+        if step % 200 == 0:
+            print("Training loss (for one batch) at step %d: %.4f" % (step, float(loss_value)))
+            print("Seen so far: %d samples" % ((step + 1) * mnist.batch_size))
+
+    # Display metrics at the end of each epoch.
+    train_acc = train_acc_metric.result()
+    print("Training acc over epoch: %.4f" % (float(train_acc),))
+
+    # Reset training metrics at the end of each epoch
+    train_acc_metric.reset_states()
+
+    # Validation
+    for x_batch_val, y_batch_val in test_dataset:
+        test_step(cnn_model, x_batch_val, y_batch_val)
+    
+    val_acc = val_acc_metric.result()
+    val_acc_metric.reset_states()
+    print("Validation acc: %.4f" % (float(val_acc),))
+    print("Time taken: %.2fs" % (time.time() - start_time))
