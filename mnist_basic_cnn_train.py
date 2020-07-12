@@ -1,7 +1,16 @@
 from data import mnist
 from models import cnn
 import tensorflow as tf
+import argparse
 
+# Create parser for command-line interface
+my_parser = argparse.ArgumentParser(description="basic model training & saving")
+my_parser.add_argument('--save', type=bool, default=False, help="choose whether to save")
+my_parser.add_argument('--epoch', type=int, default=10)
+my_parser.add_argument('--attack', type=str, default='None')
+
+args = my_parser.parse_args()
+ 
 mnist = mnist.MNIST()
 train_dataset, test_dataset = mnist.train_dataset, mnist.test_dataset
 
@@ -42,7 +51,7 @@ log_train_loss = []
 
 import time
 
-epochs = 10
+epochs = args.epoch
 for epoch in range(epochs):
     print("\nStart of epoch %d" % (epoch, ))
     start_time = time.time()
@@ -75,3 +84,8 @@ for epoch in range(epochs):
     log_train_acc.append(train_acc)
     log_val_acc.append(val_acc)
     log_train_loss.append(epoch_ave_loss)
+
+# Todo: write command line interface with argparse
+
+if args.save:
+    model.save_weights("./saved_model_weights/cnn_mnist.ckpt")
