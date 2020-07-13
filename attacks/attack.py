@@ -1,6 +1,3 @@
-import tensorflow as tf
-
-
 """
 The base class for different attacks
 """
@@ -12,11 +9,7 @@ class Attack(object):
         """
         returns perturbed image that formulate an attack
         """
-        msg = "sub class must implement this"
-        raise NotImplementedError(msg)
-        return x
-
-    
-    
-
-
+        # msg = "sub class must implement this"
+        # raise NotImplementedError(msg)
+        # return x
+        pass

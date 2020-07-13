@@ -22,3 +22,10 @@ class MNIST(object):
 
         self.train_dataset = train_dataset.shuffle(self.shuffle_buffer_size).batch(self.batch_size)
         self.test_dataset = test_dataset.batch(self.batch_size)
+
+if __name__ == "__main__":
+    mnist = MNIST()
+    train_dataset, test_dataset = mnist.train_dataset, mnist.test_dataset
+    for test_batch in test_dataset.take(1):
+        pass
+    x = test_batch[0][:3]

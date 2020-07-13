@@ -12,4 +12,4 @@ def loadModel(model, path):
 
 if __name__ == '__main__':
     model = cnn.basic_model()
-    model = loadModel(model, test_default_path)
+    loadModel(model, test_default_path)
