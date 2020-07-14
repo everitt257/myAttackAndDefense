@@ -25,7 +25,7 @@ class fastgradientattack(Attack):
             x = tf.expand_dims(x, axis=0)
 
         grads = tf.zeros_like(x)
-        if not kwargs or ('untargeted' in kwargs and kwargs['untargeted']==False):
+        if not kwargs or ('untargeted' not in kwargs) or ('untargeted' in kwargs and kwargs['untargeted']==True):
             ce_loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
             with tf.GradientTape() as tape:
                 tape.watch(x)
@@ -42,8 +42,11 @@ class fastgradientattack(Attack):
         # return shape
 
     def generate_adversarial_sample(self, x, **kwargs):
-        pertubations = self.generate(x, **kwargs)
-        return x+pertubations
+        perturbations = self.generate(x, **kwargs)
+        return perturbations, tf.clip_by_value((x+perturbations), clip_value_min=-1, clip_value_max=1)
+
+    # def evaluate(self, x, **kwargs):
+    #     return self.evaluate(x, **kwargs)
 
 if __name__ == "__main__":
     from models.cnn import basic_model
@@ -53,10 +56,19 @@ if __name__ == "__main__":
     train_dataset, test_dataset = mnist.train_dataset, mnist.test_dataset
     for test_batch in test_dataset.take(1):
         pass
-    x = test_batch[0][:3]
+    x = test_batch[0]
     model.load_weights("./saved_model_weights/cnn_mnist.ckpt")
     fgsm = fastgradientattack(model)
-    adv_x = fgsm.generate_adversarial_sample(x)
+    perturbations, adv_x = fgsm.generate_adversarial_sample(x, untargeted=True, epi=0.05)
     from utility.helpers import guess_top_label
+    adv_x_labels = guess_top_label(model, adv_x)
+    x_labels = guess_top_label(model, x)
+    print(adv_x_labels)
+    print(x_labels)
+    softmax_adv = tf.nn.softmax(model(adv_x), axis=1)
+    softmax_ori = tf.nn.softmax(model(x), axis=1)
 
-    print(guess_top_label(model, adv_x))
+    accu = tf.metrics.Accuracy()
+    accu.update_state(y_pred=adv_x_labels, y_true=x_labels)
+    print(accu.result().numpy())
+    accu.reset_states()
