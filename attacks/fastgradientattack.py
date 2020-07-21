@@ -4,7 +4,7 @@ import numpy as np
 from utility.helpers import guess_top_label, norm
 
 class fastgradientattack(Attack):
-    def __init__(self, model, eps):
+    def __init__(self, model):
         """
         :model: model specifying the trained model that used to classify
         :eps: float scalar specifying size of constraint region
@@ -39,15 +39,19 @@ class fastgradientattack(Attack):
                 loss_value = ce_loss(y_true=labels, y_pred=logits)
             grads = tape.gradient(loss_value,  x)
         
+        # Default values for optimization norm function
+        epi = tf.constant(0.01)
+        norm = np.inf
+        # If keywords are specified, use them
         if 'epi' in kwargs and isinstance(kwargs['epi'], float):
             epi = tf.constant(float(kwargs['epi']))
 
         if 'norm' in kwargs:
             norm = kwargs['norm']
 
-        optimized_grads = self.optimize_by_norm(grads, norm=norm, epi=epi)
+        optimized_perturbations = self.optimize_by_norm(grads, norm=norm, epi=epi)
 
-        return optimized_grads
+        return optimized_perturbations
     
     def optimize_by_norm(self, grads, norm=np.inf, epi=tf.constant(0.01)):
         """
@@ -60,11 +64,18 @@ class fastgradientattack(Attack):
         the cleverhans library. So for the 1-norm, this is a direct copy from
         cleverhans.
         """
+        red_ind = list(range(1, len(grad.get_shape())))
+
         avoid_zero_div = 1e-12
         if norm == np.inf:
             optimized_grads = tf.sign(grads)
         elif norm == 1:
-            pass
+            abs_grad = tf.abs(grads)
+            sign = tf.sign(grads)
+            max_abs_grad = tf.reduce_max(abs_grad, red_ind, keepdims=True)
+            tied_for_max = tf.cast(tf.equal(abs_grad, max_abs_grad), tf.float32)
+            num_ties = tf.reduce_sum(tied_for_max, red_ind, keepdims=True)
+            optimized_grads = sign * tied_for_max / num_ties
         elif norm == 2:
             grads_norms = norm(grads, ord=2)
             optimized_grads = grads/tf.maximum(avoid_zero_div, grads_norms) 
